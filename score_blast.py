@@ -1,19 +1,18 @@
 """
-------------------------------------------------------------------------
-This script generates scores for each cut in multifasta file and
-gives taxonomic label (LCA) of first significant cluster
-
-Written by N. R. Shah [nidhi@cs.umd.edu] in Aug 2017.
-------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+This script generates relavant top BLAST hits, which we refer as outlier hits,
+for each query sequence. 
+Written by N. R. Shah [nidhi@cs.umd.edu] for WABI/AMB submission 2017.
+-------------------------------------------------------------------------------
 """
 
 import os
 import sys
 import math
+import argparse
 from scipy import special
-import numpy as np
 from itertools import groupby
-
+import numpy as np
 gamma_values = []
 gamma_half_values = []
 queries = {}
@@ -42,7 +41,7 @@ def calc_entropy(c_values, ctotal):
         entropy += (-1)*prob_list[j]*math.log(prob_list[j],4)
     return entropy
 
-def execute(a,c,t,g,listdb,width):
+def execute(a,c,t,g,listdb,width,raiseto):
 	entropylist = []
 	wholescore = 0
 	asum = np.sum(a,axis=0)
@@ -50,10 +49,6 @@ def execute(a,c,t,g,listdb,width):
 	tsum = np.sum(t,axis=0)
 	gsum = np.sum(g,axis=0)
 
-	# asum = a.sum(axis=0)
-	# csum = c.sum(axis=0)
-	# tsum = t.sum(axis=0)
-	# gsum = g.sum(axis=0)
 	for i in xrange(0,width):
 		col_score = 0
 		ctotal = asum[i] + csum[i] + tsum[i] + gsum[i]
@@ -87,15 +82,6 @@ def execute(a,c,t,g,listdb,width):
 		ycsum = np.sum(c[k:,:],axis=0)
 		ytsum = np.sum(t[k:,:],axis=0)
 		ygsum = np.sum(g[k:,:],axis=0)
-
-		# xasum = a[0:k,:].sum(axis=0)
-		# xcsum = c[0:k,:].sum(axis=0)
-		# xtsum = t[0:k,:].sum(axis=0)
-		# xgsum = g[0:k,:].sum(axis=0)
-		# yasum = a[k:,:].sum(axis=0)
-		# ycsum = c[k:,:].sum(axis=0)
-		# ytsum = t[k:,:].sum(axis=0)
-		# ygsum = g[k:,:].sum(axis=0)
 		for i in xrange(0, width):
 			c_x = [0,0,0,0]
 			c_y = [0,0,0,0]
@@ -147,18 +133,28 @@ def execute(a,c,t,g,listdb,width):
 		if len(scorearray) >= 3:
 			if scorearray[-2] > scorearray[-1] and scorearray[-2] > scorearray[-3] and scorearray[-2] > 0:
 			# if scorearray[-2] > scorearray[-1] and scorearray[-2] > scorearray[-3]:
-				return listofdb[0:len(scorearray)-3], scorearray
+				return listdb[0:len(scorearray)-3], scorearray
 
 	return [],scorearray
-if __name__ == "__main__":
-	#Pre-compute gamma values
+
+def main():
+	parser = argparse.ArgumentParser(description="A tool to decide which of the top BLAST hits are related to the query sequence")
+	parser.add_argument("-q","--query_file",help="A fasta file of query sequences",required=True)
+	parser.add_argument("-b","--blast_file", help="BLAST output file with output format: -outfmt \" 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq \"",required=True)
+	parser.add_argument("-a","--raiseto",help="A hyperparameter to control weight given to conserved coloumns in the multiple sequence alignment step (default value = 2.7)",default=2.7,required=False)
+	parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)",default="outlier.txt",required=False)
+	args = parser.parse_args()
+	raiseto = float(args.raiseto)
+	#Pre-computes gamma values 
 	for i in xrange(0,104):
 		gamma_half_values.append(special.gammaln(i+ 0.5))
 		gamma_values.append(special.gammaln(i+2))
+
+	fw = open(str(args.output_file),'w')
 	#Read BLAST file
-	fasta_iter(str(sys.argv[1]))
+	fasta_iter(str(args.query_file))
 	current = 'None'
-	with open(str(sys.argv[2])) as f:
+	with open(str(args.blast_file)) as f:
 		for line in f:
 			val = line.strip().split('\t') 
 			if current == 'None':
@@ -176,8 +172,8 @@ if __name__ == "__main__":
 				g[0,:] =  ((sq=='G')*1)
 				counter = 1
 			if val[0] != current:
-				tuplescore = execute(a[0:counter,:], c[0:counter,:], t[0:counter,:], g[0:counter,:], listofdb, len(query))
-				print current + '\t'+  ';'.join(tuplescore[0]) 
+				tuplescore = execute(a[0:counter,:], c[0:counter,:], t[0:counter,:], g[0:counter,:], listofdb, len(query), raiseto)
+				fw.write(str(current) + '\t'+  ';'.join(tuplescore[0]) +'\n') 
 				current = val[0]
 				query = queries[val[0]]
 				listofdb = []
@@ -193,6 +189,7 @@ if __name__ == "__main__":
 				counter = 1
 			if val[0] == current and counter < 101:
 				seqlen = abs(int(val[7])-int(val[6]))+1
+				#Checking whether the BLAST hit at least covers 90% of the query length 
 				if seqlen < 0.9*len(query):
 					continue
 				qseq = val[12]
@@ -217,77 +214,13 @@ if __name__ == "__main__":
 				g[counter,:] =  ((sq=='G')*1)
 				counter += 1 
 				listofdb.append(val[1])
-			# if counter == 101:
-			# 	print "im here"
-			# 	break
-		tuplescore = execute(a[0:counter,:], c[0:counter,:], t[0:counter,:], g[0:counter,:], listofdb, len(query))
-		print current + '\t'+  ';'.join(tuplescore[0]) 
-			# else:
-			# 	print (a != 0).sum(0) + (c != 0).sum(0) + (t != 0).sum(0) + (g != 0).sum(0)
-			# 	# print np.nonzero(a)
-			# 	# print a.shape
-			# 	# print a[0:5,:]
-			# 	# print len(a[0:5,:].sum(axis=0))
-			# 	print current
-			# 	tuplescore = execute(a[0:counter,:], c[0:counter,:], t[0:counter,:], g[0:counter,:], listofdb, len(query))
-			# 	print tuplescore[0], tuplescore[1]
-			# 	print current + '\t'+  ';'.join(tuplescore[0])
-			# 	current = val[0]
-			# 	print "new", current
-			# 	query = queries[val[0]]
-			# 	listofdb = []
-			# 	a = np.zeros((100, len(query)), dtype=bool)
-			# 	c = np.zeros((100, len(query)), dtype=bool)
-			# 	t = np.zeros((100, len(query)), dtype=bool)
-			# 	g = np.zeros((100, len(query)), dtype=bool)
-			# 	sq = np.array(list(query))
-			# 	a[0,:] =  ((sq=='A')*1)
-			# 	c[0,:] =  ((sq=='C')*1)
-			# 	t[0,:] =  ((sq=='T')*1)
-			# 	g[0,:] =  ((sq=='G')*1)
-			# 	counter = 1
-				# break
-				# print (a!='-').sum()
-				# print a[0:5,:]
-				# print (a != 0).sum(0) + (c != 0).sum(0) + (t != 0).sum(0) + (g != 0).sum(0)
-				# print (a != 0).sum(1) + (c != 0).sum(1) + (t != 0).sum(1) + (g != 0).sum(1)
-				# break
-				# # execute(a,c,t,g,listofdb)
-				# a = np.zeros((100, len(query)), dtype=bool)
-				# c = np.zeros((100, len(query)), dtype=bool)
-				# t = np.zeros((100, len(query)), dtype=bool)
-				# g = np.zeros((100, len(query)), dtype=bool)
-				# counter = 0 
-				# # print query
-				# sq = np.array(list(query))
-				# a[0,:] =  ((sq=='A')*1)
-				# c[0,:] =  ((sq=='C')*1)
-				# t[0,:] =  ((sq=='T')*1)
-				# g[0,:] =  ((sq=='G')*1)
-				# counter += 1
+		tuplescore = execute(a[0:counter,:], c[0:counter,:], t[0:counter,:], g[0:counter,:], listofdb, len(query), raiseto)
+		fw.write(str(current) + '\t'+  ';'.join(tuplescore[0]) +'\n')
+	fw.close()
 
+if __name__ == "__main__":
+	main()
 
-
-
-
-
-					
-				# else:
-				# 	execute(a)
-
-				# if val[0] != current and current != 'None':
-				# 	execute(a)
-				# 	a = np.zeros((100, 600), dtype=bool)
-				# 	print a[0,0]
-				# current = val[0]
-				# qseq = val[12]
-				# sseq = val[13]
-				# query = queries[val[0]]
-				# print len(query)
-				# for i in xrange(0, int(val[6]))	:
-				# 	qseq = '-' + qseq
-				# print val[6], val[7], qseq, sseq
-				# break
 
 
 
