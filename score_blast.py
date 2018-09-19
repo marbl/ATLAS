@@ -46,6 +46,7 @@ def calc_col_score(c, ctotal, gamma_half_values, gamma_values):
 
 def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
     entropylist = []
+    print ( len(listofseqs))
     wholescore = 0
     a = [[1 if x == 'A' else 0 for x in row ] for row in listofseqs]
     c = [[1 if x == 'C' else 0 for x in row] for row in listofseqs]
@@ -106,15 +107,18 @@ def main():
     parser.add_argument("-a","--raiseto",help="A hyperparameter to control weight given to conserved coloumns in the multiple sequence alignment step (default value = 2.7)",default=2.7,required=False)
     parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)",default="outlier.txt",required=False)
     parser.add_argument("-blast","--blast_op", help="output file name for subsetting BLAST hits (default - subset_blast.txt)",default="subset_blast.txt",required=False)
+    parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 300)",default=300,required=False)
     args = parser.parse_args()
     raiseto = float(args.raiseto)
 
     #Pre-computes gamma values 
-    gamma_half_values = [special.gammaln(i+0.5) for i in range(0,150)]
-    gamma_values = [special.gammaln(i+2) for i in range(0,150)]
+    max_blast_hits = int(args.max_blast_hits)
+    gamma_half_values = [special.gammaln(i+0.5) for i in range(0,max_blast_hits+5)]
+    gamma_values = [special.gammaln(i+2) for i in range(0,max_blast_hits+5)]
 
     #Open file handles for summary and subset blast output
     fw = open(str(args.output_file),'w')
+    fw.write('#query_sequence\tcandidate_DB_seqs(outliers)\tquery_unrelated2DB\tscore_of_cut\n')
     fblast = open(str(args.blast_op), 'w')
 
     #Read BLAST file
@@ -138,6 +142,7 @@ def main():
                 listofnames.append(val[0])
                 counter = 0
             if val[0] != current:
+                print (current, len(listofseqs))
                 tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values)
                 write_summary(tuplescore, listofnames, fw, fblast, blast_lines)
                 current = val[0]
@@ -148,7 +153,7 @@ def main():
                 listofseqs.append(list(query.upper()))
                 listofnames.append(val[0])
                 counter = 0
-            if val[0] == current:
+            if val[0] == current and counter <= max_blast_hits:
                 seqlen = abs(int(val[7])-int(val[6]))+1
 
                 #Checking whether the BLAST hit at least covers 90% of the query length 
