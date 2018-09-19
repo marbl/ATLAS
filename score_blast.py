@@ -46,7 +46,6 @@ def calc_col_score(c, ctotal, gamma_half_values, gamma_values):
 
 def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
     entropylist = []
-    print ( len(listofseqs))
     wholescore = 0
     a = [[1 if x == 'A' else 0 for x in row ] for row in listofseqs]
     c = [[1 if x == 'C' else 0 for x in row] for row in listofseqs]
@@ -142,7 +141,7 @@ def main():
                 listofnames.append(val[0])
                 counter = 0
             if val[0] != current:
-                print (current, len(listofseqs))
+                
                 tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values)
                 write_summary(tuplescore, listofnames, fw, fblast, blast_lines)
                 current = val[0]
