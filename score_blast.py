@@ -47,36 +47,46 @@ def calc_col_score(c, ctotal, gamma_half_values, gamma_values):
 def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
     entropylist = []
     wholescore = 0
-    a = [[1 if x == 'A' else 0 for x in row ] for row in listofseqs]
-    c = [[1 if x == 'C' else 0 for x in row] for row in listofseqs]
-    t = [[1 if x == 'T' else 0 for x in row] for row in listofseqs]
-    g = [[1 if x == 'G' else 0 for x in row] for row in listofseqs]
-    asum = np.sum(a,axis=0)
-    csum = np.sum(c,axis=0)
-    tsum = np.sum(t,axis=0)
-    gsum = np.sum(g,axis=0)
-    ctotal = asum + csum + tsum + gsum  
-    entropylist = [calc_entropy([asum[i],csum[i], tsum[i], gsum[i]],ctotal[i]) for i in range(0, width)]
-    lscore_new = [0 if ctotal_i == 0 else sum([1 for x in [asum[i], csum[i], tsum[i], gsum[i]]]) for i, ctotal_i in enumerate(ctotal)]
-    colscore_new = [0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([asum[i], csum[i], tsum[i], gsum[i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(ctotal)]
+    a = np.cumsum([[1 if x == 'A' else 0 for x in row ] for row in listofseqs], axis = 0)
+    c = np.cumsum([[1 if x == 'C' else 0 for x in row] for row in listofseqs], axis = 0)
+    t = np.cumsum([[1 if x == 'T' else 0 for x in row] for row in listofseqs], axis = 0)
+    g = np.cumsum([[1 if x == 'G' else 0 for x in row] for row in listofseqs], axis = 0)
+    # print (a[-1, :], a.shape)
+    # exit()
+    # asum = np.sum(a,axis=0)
+    # csum = np.sum(c,axis=0)
+    # tsum = np.sum(t,axis=0)
+    # gsum = np.sum(g,axis=0)
+    # To count all the characters in each column - just check the final row in the cumulative sum array
+    ctotal = a[-1, :] + c[-1, :] + t[-1, :] + g[-1, :] 
+    entropylist = [calc_entropy([a[-1, i], c[-1, i], t[-1, i], g[-1, i]],ctotal[i]) for i in range(0, width)]
+    # lscore_new = [0 if ctotal_i == 0 else sum([1 for x in [asum[i], csum[i], tsum[i], gsum[i]]]) for i, ctotal_i in enumerate(ctotal)]
+    colscore_new = [0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([a[-1, i], c[-1, i], t[-1, i], g[-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(ctotal)]
     wholescore = sum(colscore_new)
     scorearray = []
     scorearray.append(wholescore)
     for k in range(1,len(listofseqs)):
         score_x = 0
         score_y = 0
-        xasum = np.sum(a[0:k],axis=0)
-        xcsum = np.sum(c[0:k],axis=0)
-        xtsum = np.sum(t[0:k],axis=0)
-        xgsum = np.sum(g[0:k],axis=0)
-        yasum = np.sum(a[k:],axis=0)
-        ycsum = np.sum(c[k:],axis=0)
-        ytsum = np.sum(t[k:],axis=0)
-        ygsum = np.sum(g[k:],axis=0)
-        c_total_x = xasum + xcsum + xtsum + xgsum
+        # xasum = np.sum(a[0:k],axis=0)
+        # xcsum = np.sum(c[0:k],axis=0)
+        # xtsum = np.sum(t[0:k],axis=0)
+        # xgsum = np.sum(g[0:k],axis=0)
+        # yasum = np.sum(a[k:],axis=0)
+        # ycsum = np.sum(c[k:],axis=0)
+        # ytsum = np.sum(t[k:],axis=0)
+        # ygsum = np.sum(g[k:],axis=0)
+        # c_total_x = xasum + xcsum + xtsum + xgsum
+        yasum = a[-1, :] - a[k-1, :]
+        ycsum = c[-1, :] - c[k-1, :]
+        ytsum = t[-1, :] - t[k-1, :]
+        ygsum = g[-1, :] - g[k-1, :]
+        # print (yasum, a[k-1, :], a[-1, :])
+        # exit()
+        c_total_x = a[k-1, :] + c[k-1, :] + t[k-1, :] + g[k-1, :]
         c_total_y = ctotal - c_total_x
-        colscore_x = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([xasum[i], xcsum[i], xtsum[i], xgsum[i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_x)])
-        colscore_y = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([yasum[i], ycsum[i], ytsum[i], ygsum[i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_y)])
+        colscore_x = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([a[k-1, i], c[k-1, i], t[k-1, i], g[k-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_x)])
+        colscore_y = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([yasum[i] , ycsum[i], ytsum[i], ygsum[i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_y)])
         score = colscore_x + colscore_y - wholescore
         scorearray.append(score)
         #This can even tell when query is sufficiently different than the rest i.e. when the peak in the scorearray is observed at index 1
