@@ -83,7 +83,8 @@ optional arguments:
                         output file name (default - consensus_taxonomy.txt)
 ```
 The output file contains taxonomic annotation for all query sequences that had at least one BLAST hit detected as outlier by our tool. 
-
+<!---
 Please refer to our WABI [paper](http://drops.dagstuhl.de/opus/frontdoor.php?source_opus=7651) and AMB [paper](https://almob.biomedcentral.com/articles/10.1186/s13015-018-0126-3) for understanding the algorithm.
+--->
 For any questions, please email nidhi@cs.umd.edu.
 
