@@ -34,6 +34,8 @@ def main():
 	#Read outlier file
 	with open(str(args.outlier_file)) as f1:
 		for line in f1:
+			if line.startswith('#'):
+				continue
 			lsplit = line.strip().split('\t')
 			if lsplit[col_num] == 'NA':
 				continue
