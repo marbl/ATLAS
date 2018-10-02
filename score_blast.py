@@ -94,13 +94,13 @@ def write_summary(tuplescore, listofnames, fw, fblast, blast_lines):
 
 def main():
     parser = argparse.ArgumentParser(description="A tool to decide which of the top BLAST hits are related to the query sequence")
-    parser.add_argument("-q","--query_file",help="A fasta file of query sequences",required=True)
-    parser.add_argument("-b","--blast_file", help="BLAST output file with output format: -outfmt \" 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq \"",required=True)
-    parser.add_argument("-a","--raiseto",help="A hyperparameter to control weight given to conserved coloumns in the multiple sequence alignment step (default value = 2.7)",default=2.7,required=False)
-    parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)",default="outlier.txt",required=False)
+    parser.add_argument("-q","--query_file", help="A fasta file of query sequences",required=True)
+    parser.add_argument("-b","--blast_file", help="BLAST output file with output format: -outfmt \" 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq \"", required=True)
+    parser.add_argument("-a","--raiseto", help="A hyperparameter to control weight given to conserved coloumns in the multiple sequence alignment step (default value = 2.7)", default=2.7, required=False)
+    parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)", default="outlier.txt", required=False)
     parser.add_argument("-blast","--blast_op", help="output file name for subsetting BLAST hits (default - subset_blast.txt)", default="subset_blast.txt", required=False)
-    parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 300)",default=300, required=False)
-    parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1)",default=0.9, required=False)
+    parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 300)", default=300, required=False)
+    parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1)", default=0.9, required=False)
     args = parser.parse_args()
     raiseto = float(args.raiseto)
 
