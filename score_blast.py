@@ -45,7 +45,7 @@ def calc_col_score(c, ctotal, gamma_half_values, gamma_values):
     col_score_sub = [gamma_half_values[0] for x in c]
     return sum(col_score) - sum(col_score_sub) - gamma_values[ctotal]
 
-def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
+def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofpidnames):
     entropylist = []
     wholescore = 0
     a = np.cumsum([[1 if x == 'A' else 0 for x in row ] for row in listofseqs], axis = 0)
@@ -79,16 +79,18 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
                 return len(scorearray)-2, scorearray
     return -1, scorearray
 
-def write_summary(tuplescore, listofnames, fw, fblast, blast_lines):
+def write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames):
     index, scorearray = tuplescore
     if index == 1:
-        fw.write(''.join(['\t'.join([listofnames[0], 'NA', listofnames[0], str(scorearray[index])]),'\n']))
+        fw.write(''.join(['\t'.join([listofnames[0], 'NA', 'NA', listofnames[0], str(scorearray[index])]),'\n']))
         return
     if index == -1:
-        fw.write(''.join(['\t'.join([listofnames[0], 'NA', 'NA', 'NA']),'\n']))
+        fw.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
+        # This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
+        fblast.write('\n'.join(blast_lines[0:len(listofpidnames)]))
         return
     outliers = listofnames[1:index]
-    fw.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', str(scorearray[index])]),'\n']))
+    fw.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
     fblast.write('\n'.join(blast_lines[0:len(outliers)]))
     return
 
@@ -100,19 +102,21 @@ def main():
     parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)", default="outlier.txt", required=False)
     parser.add_argument("-blast","--blast_op", help="output file name for subsetting BLAST hits (default - subset_blast.txt)", default="subset_blast.txt", required=False)
     parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 300)", default=300, required=False)
-    parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1)", default=0.9, required=False)
+    parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1, default = 0.9) ", default=0.9, required=False)
+    parser.add_argument("-pid","--pid_threshold", help="Select hits >= pid (percent identity) when we cannot find candidate hits through MSA technique (default=100), ", default=100, required=False)
     args = parser.parse_args()
     raiseto = float(args.raiseto)
 
     #Pre-computes gamma values 
     max_blast_hits = int(args.max_blast_hits)
     qc_threshold = float(args.qc_threshold)
+    pid_threshold = float(args.pid_threshold)
     gamma_half_values = [special.gammaln(i+0.5) for i in range(0,max_blast_hits+5)]
     gamma_values = [special.gammaln(i+2) for i in range(0,max_blast_hits+5)]
 
     #Open file handles for summary and subset blast output
     fw = open(str(args.output_file),'w')
-    fw.write('#query_sequence\tcandidate_DB_seqs(outliers)\tquery_unrelated2DB\tscore_of_cut\n')
+    fw.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
     fblast = open(str(args.blast_op), 'w')
 
     #Read BLAST file
@@ -131,18 +135,21 @@ def main():
                 ## New code
                 listofseqs = []
                 listofnames = []
+                listofpidnames = []
+                flagadd = True
                 blast_lines = []
                 listofseqs.append(list(query.upper()))
                 listofnames.append(val[0])
                 counter = 0
             if val[0] != current:
-                
-                tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values)
-                write_summary(tuplescore, listofnames, fw, fblast, blast_lines)
+                tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
+                write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames)
                 current = val[0]
                 query = queries[val[0]]
                 listofseqs = []
                 listofnames = []
+                listofpidnames = []
+                flagadd = True
                 blast_lines = []
                 listofseqs.append(list(query.upper()))
                 listofnames.append(val[0])
@@ -153,7 +160,10 @@ def main():
                 #Checking whether the BLAST hit at least covers 90% of the query length 
                 if seqlen < qc_threshold * len(query):
                     continue
-
+                if flagadd == True and float(val[2]) >= pid_threshold:
+                    listofpidnames.append(val[1])
+                else:
+                    flagadd = False
                 qseq = val[12]
                 sseq = val[13]
                 scopy = [i for num, i in enumerate(sseq) if qseq[num] != '-']
@@ -168,8 +178,8 @@ def main():
                 counter += 1 
 
         #This is to take care of last query hits when the file ends
-        tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values)
-        write_summary(tuplescore, listofnames, fw, fblast, blast_lines)
+        tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
+        write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames)
 
     fw.close()
     fblast.close()
