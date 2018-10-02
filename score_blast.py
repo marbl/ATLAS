@@ -16,13 +16,14 @@ import numpy as np
 
 def fasta_iter(fasta_name):
     queries = {}
-    fh = open(fasta_name)
-    faiter = (x[1] for x in groupby(fh, lambda line: line[0] == ">"))
-    for header in faiter:
-        header = next(header)[1:].strip()
-        hsplit = header.split(" ")
-        seq = "".join(s.strip() for s in next(faiter))
-        queries[hsplit[0]] = seq
+    with open(fasta_name, 'r') as fh:
+        faiter = (x[1] for x in groupby(fh, lambda line: line[0] == ">"))
+        for header in faiter:
+            header = next(header)[1:].strip()
+            hsplit = header.split(" ")
+            seq = "".join(s.strip() for s in next(faiter))
+            queries[hsplit[0]] = seq
+
     return queries
 
 def find(s, ch):
@@ -51,16 +52,9 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
     c = np.cumsum([[1 if x == 'C' else 0 for x in row] for row in listofseqs], axis = 0)
     t = np.cumsum([[1 if x == 'T' else 0 for x in row] for row in listofseqs], axis = 0)
     g = np.cumsum([[1 if x == 'G' else 0 for x in row] for row in listofseqs], axis = 0)
-    # print (a[-1, :], a.shape)
-    # exit()
-    # asum = np.sum(a,axis=0)
-    # csum = np.sum(c,axis=0)
-    # tsum = np.sum(t,axis=0)
-    # gsum = np.sum(g,axis=0)
     # To count all the characters in each column - just check the final row in the cumulative sum array
     ctotal = a[-1, :] + c[-1, :] + t[-1, :] + g[-1, :] 
     entropylist = [calc_entropy([a[-1, i], c[-1, i], t[-1, i], g[-1, i]],ctotal[i]) for i in range(0, width)]
-    # lscore_new = [0 if ctotal_i == 0 else sum([1 for x in [asum[i], csum[i], tsum[i], gsum[i]]]) for i, ctotal_i in enumerate(ctotal)]
     colscore_new = [0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([a[-1, i], c[-1, i], t[-1, i], g[-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(ctotal)]
     wholescore = sum(colscore_new)
     scorearray = []
@@ -68,21 +62,10 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values):
     for k in range(1,len(listofseqs)):
         score_x = 0
         score_y = 0
-        # xasum = np.sum(a[0:k],axis=0)
-        # xcsum = np.sum(c[0:k],axis=0)
-        # xtsum = np.sum(t[0:k],axis=0)
-        # xgsum = np.sum(g[0:k],axis=0)
-        # yasum = np.sum(a[k:],axis=0)
-        # ycsum = np.sum(c[k:],axis=0)
-        # ytsum = np.sum(t[k:],axis=0)
-        # ygsum = np.sum(g[k:],axis=0)
-        # c_total_x = xasum + xcsum + xtsum + xgsum
         yasum = a[-1, :] - a[k-1, :]
         ycsum = c[-1, :] - c[k-1, :]
         ytsum = t[-1, :] - t[k-1, :]
         ygsum = g[-1, :] - g[k-1, :]
-        # print (yasum, a[k-1, :], a[-1, :])
-        # exit()
         c_total_x = a[k-1, :] + c[k-1, :] + t[k-1, :] + g[k-1, :]
         c_total_y = ctotal - c_total_x
         colscore_x = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([a[k-1, i], c[k-1, i], t[k-1, i], g[k-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_x)])
@@ -117,6 +100,7 @@ def main():
     parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)",default="outlier.txt",required=False)
     parser.add_argument("-blast","--blast_op", help="output file name for subsetting BLAST hits (default - subset_blast.txt)",default="subset_blast.txt",required=False)
     parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 300)",default=300,required=False)
+    parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to quali",default=300,required=False)
     args = parser.parse_args()
     raiseto = float(args.raiseto)
 
