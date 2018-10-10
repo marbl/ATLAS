@@ -81,16 +81,19 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofp
 
 def write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames):
     index, scorearray = tuplescore
-    if len(listofpidnames) == 0:
+    length = len(listofpidnames)
+    if length == 0:
         listofpidnames.append('None')
     if index == 1:
         fw.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
-        fblast.write(''.join(['\n'.join(blast_lines[0:len(listofpidnames)]),'\n']))
+        if length != 0:
+            fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     if index == -1:
         fw.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
         # This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
-        fblast.write(''.join(['\n'.join(blast_lines[0:len(listofpidnames)]),'\n']))
+        if length != 0:
+            fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     outliers = listofnames[1:index]
     fw.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
