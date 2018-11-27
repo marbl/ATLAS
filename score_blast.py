@@ -60,8 +60,6 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofp
     scorearray = []
     scorearray.append(wholescore)
     for k in range(1,len(listofseqs)):
-        score_x = 0
-        score_y = 0
         yasum = a[-1, :] - a[k-1, :]
         ycsum = c[-1, :] - c[k-1, :]
         ytsum = t[-1, :] - t[k-1, :]
