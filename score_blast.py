@@ -6,8 +6,6 @@ Written by N. R. Shah [nidhi@cs.umd.edu] for WABI/AMB submission 2017.
 -------------------------------------------------------------------------------
 """
 
-import os
-import sys
 import math
 import argparse
 from scipy import special
@@ -16,18 +14,14 @@ import numpy as np
 
 def fasta_iter(fasta_name):
     queries = {}
-    with open(fasta_name, 'r') as fh:
-        faiter = (x[1] for x in groupby(fh, lambda line: line[0] == ">"))
+    with open(fasta_name, 'r') as fasta_file:
+        faiter = (x[1] for x in groupby(fasta_file, lambda line: line[0] == ">"))
         for header in faiter:
             header = next(header)[1:].strip()
             hsplit = header.split(" ")
-            seq = "".join(s.strip() for s in next(faiter))
+            seq = "".join(sequence.strip() for sequence in next(faiter))
             queries[hsplit[0]] = seq
-
     return queries
-
-def find(s, ch):
-    return [i for i, ltr in enumerate(s) if ltr == ch]
 
 def calc_entropy(c_values, ctotal):
     if ctotal ==0:
@@ -40,34 +34,34 @@ def calc_entropy(c_values, ctotal):
         entropy += (-1)*prob_list[j]*math.log(prob_list[j],4)
     return entropy
 
-def calc_col_score(c, ctotal, gamma_half_values, gamma_values):
-    col_score = [gamma_half_values[x] for x in c]
-    col_score_sub = [gamma_half_values[0] for x in c]
-    return sum(col_score) - sum(col_score_sub) - gamma_values[ctotal]
+def calc_col_score(partial_cumulative_sum, total_cumulative_sum, gamma_half_values, gamma_values):
+    col_score = [gamma_half_values[x] for x in partial_cumulative_sum]
+    col_score_sub = [gamma_half_values[0] for x in partial_cumulative_sum]
+    return sum(col_score) - sum(col_score_sub) - gamma_values[total_cumulative_sum]
 
 def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofpidnames):
     entropylist = []
     wholescore = 0
-    a = np.cumsum([[1 if x == 'A' else 0 for x in row ] for row in listofseqs], axis = 0)
-    c = np.cumsum([[1 if x == 'C' else 0 for x in row] for row in listofseqs], axis = 0)
-    t = np.cumsum([[1 if x == 'T' else 0 for x in row] for row in listofseqs], axis = 0)
-    g = np.cumsum([[1 if x == 'G' else 0 for x in row] for row in listofseqs], axis = 0)
+    a_list = np.cumsum([[1 if x == 'A' else 0 for x in row ] for row in listofseqs], axis = 0)
+    c_list = np.cumsum([[1 if x == 'C' else 0 for x in row] for row in listofseqs], axis = 0)
+    t_list = np.cumsum([[1 if x == 'T' else 0 for x in row] for row in listofseqs], axis = 0)
+    g_list = np.cumsum([[1 if x == 'G' else 0 for x in row] for row in listofseqs], axis = 0)
     # To count all the characters in each column - just check the final row in the cumulative sum array
-    ctotal = a[-1, :] + c[-1, :] + t[-1, :] + g[-1, :] 
-    entropylist = [calc_entropy([a[-1, i], c[-1, i], t[-1, i], g[-1, i]],ctotal[i]) for i in range(0, width)]
-    colscore_new = [0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([a[-1, i], c[-1, i], t[-1, i], g[-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(ctotal)]
+    c_total = a_list[-1, :] + c_list[-1, :] + t_list[-1, :] + g_list[-1, :] 
+    entropy_list = [calc_entropy([a_list[-1, i], c_list[-1, i], t_list[-1, i], g_list[-1, i]],c_total[i]) for i in range(0, width)]
+    colscore_new = [0 if ctotal_i == 0 else (entropy_list[i]**(raiseto))*calc_col_score([a_list[-1, i], c_list[-1, i], t_list[-1, i], g_list[-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total)]
     wholescore = sum(colscore_new)
     scorearray = []
     scorearray.append(wholescore)
     for k in range(1,len(listofseqs)):
-        yasum = a[-1, :] - a[k-1, :]
-        ycsum = c[-1, :] - c[k-1, :]
-        ytsum = t[-1, :] - t[k-1, :]
-        ygsum = g[-1, :] - g[k-1, :]
-        c_total_x = a[k-1, :] + c[k-1, :] + t[k-1, :] + g[k-1, :]
-        c_total_y = ctotal - c_total_x
-        colscore_x = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([a[k-1, i], c[k-1, i], t[k-1, i], g[k-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_x)])
-        colscore_y = sum([0 if ctotal_i == 0 else (entropylist[i]**(raiseto))*calc_col_score([yasum[i] , ycsum[i], ytsum[i], ygsum[i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_y)])
+        ya_sum = a_list[-1, :] - a_list[k-1, :]
+        yc_sum = c_list[-1, :] - c_list[k-1, :]
+        yt_sum = t_list[-1, :] - t_list[k-1, :]
+        yg_sum = g_list[-1, :] - g_list[k-1, :]
+        c_total_x = a_list[k-1, :] + c_list[k-1, :] + t_list[k-1, :] + g_list[k-1, :]
+        c_total_y = c_total - c_total_x
+        colscore_x = sum([0 if ctotal_i == 0 else (entropy_list[i]**(raiseto))*calc_col_score([a_list[k-1, i], c_list[k-1, i], t_list[k-1, i], g_list[k-1, i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_x)])
+        colscore_y = sum([0 if ctotal_i == 0 else (entropy_list[i]**(raiseto))*calc_col_score([ya_sum[i] , yc_sum[i], yt_sum[i], yg_sum[i]], ctotal_i, gamma_half_values, gamma_values) for i, ctotal_i in enumerate(c_total_y)])
         score = colscore_x + colscore_y - wholescore
         scorearray.append(score)
         #This can even tell when query is sufficiently different than the rest i.e. when the peak in the scorearray is observed at index 1
@@ -77,24 +71,24 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofp
                 return len(scorearray)-2, scorearray
     return -1, scorearray
 
-def write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames):
+def write_summary(tuplescore, listofnames, output_file, fblast, blast_lines, listofpidnames):
     index, scorearray = tuplescore
     length = len(listofpidnames)
     if length == 0:
         listofpidnames.append('None')
     if index == 1:
-        fw.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
+        output_file.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
         if length != 0:
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     if index == -1:
-        fw.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
+        output_file.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
         # This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
         if length != 0:
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     outliers = listofnames[1:index]
-    fw.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
+    output_file.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
     fblast.write(''.join(['\n'.join(blast_lines[0:len(outliers)]), '\n']))
     return
 
@@ -119,8 +113,8 @@ def main():
     gamma_values = [special.gammaln(i+2) for i in range(0,max_blast_hits+5)]
 
     #Open file handles for summary and subset blast output
-    fw = open(str(args.output_file),'w')
-    fw.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
+    output_file = open(str(args.output_file),'w')
+    output_file.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
     fblast = open(str(args.blast_op), 'w')
 
     #Read BLAST file
@@ -147,7 +141,7 @@ def main():
                 counter = 0
             if val[0] != current:
                 tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
-                write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames)
+                write_summary(tuplescore, listofnames, output_file, fblast, blast_lines, listofpidnames)
                 current = val[0]
                 query = queries[val[0]]
                 listofseqs = []
@@ -183,9 +177,9 @@ def main():
 
         #This is to take care of last query hits when the file ends
         tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
-        write_summary(tuplescore, listofnames, fw, fblast, blast_lines, listofpidnames)
+        write_summary(tuplescore, listofnames, output_file, fblast, blast_lines, listofpidnames)
 
-    fw.close()
+    output_file.close()
     fblast.close()
 
 if __name__ == "__main__":
