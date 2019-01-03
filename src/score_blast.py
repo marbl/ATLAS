@@ -71,24 +71,27 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofp
                 return len(scorearray)-2, scorearray
     return -1, scorearray
 
-def write_summary(tuplescore, listofnames, output_file, fblast, blast_lines, listofpidnames):
+def write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames):
     index, scorearray = tuplescore
     length = len(listofpidnames)
     if length == 0:
         listofpidnames.append('None')
     if index == 1:
-        output_file.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
+        output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
+        output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
         if length != 0:
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     if index == -1:
-        output_file.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
-        # This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
+    	# This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
+        output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
+        output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
         if length != 0:
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     outliers = listofnames[1:index]
-    output_file.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
+    output_file_summary.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
+    output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(outliers), '\n']))
     fblast.write(''.join(['\n'.join(blast_lines[0:len(outliers)]), '\n']))
     return
 
@@ -97,7 +100,7 @@ def main():
     parser.add_argument("-q","--query_file", help="A fasta file of query sequences",required=True)
     parser.add_argument("-b","--blast_file", help="BLAST output file with output format: -outfmt \" 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qseq sseq \"", required=True)
     parser.add_argument("-a","--raiseto", help="A hyperparameter to control weight given to conserved coloumns in the multiple sequence alignment step (default value = 2.7)", default=2.7, required=False)
-    parser.add_argument("-out","--output_file", help="output file name (default - outlier.txt)", default="outlier.txt", required=False)
+    parser.add_argument("-out","--output_file", help="output file prefix (default - results)", default="results", required=False)
     parser.add_argument("-blast","--blast_op", help="output file name for subsetting BLAST hits (default - subset_blast.txt)", default="subset_blast.txt", required=False)
     parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 300)", default=300, required=False)
     parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1, default = 0.9) ", default=0.9, required=False)
@@ -113,8 +116,10 @@ def main():
     gamma_values = [special.gammaln(i+2) for i in range(0,max_blast_hits+5)]
 
     #Open file handles for summary and subset blast output
-    output_file = open(str(args.output_file),'w')
-    output_file.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
+    output_file_outliers = open(str(args.output_file)+'.outliers','w')
+    output_file_outliers.write('#query_sequence\tcandidate_DB_seqs\n')
+    output_file_summary = open(str(args.output_file)+'.summary','w')
+    output_file_summary.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
     fblast = open(str(args.blast_op), 'w')
 
     #Read BLAST file
@@ -130,7 +135,6 @@ def main():
             if current == 'None':
                 current = val[0]
                 query = queries[val[0]]
-                ## New code
                 listofseqs = []
                 listofnames = []
                 listofpidnames = []
@@ -141,7 +145,7 @@ def main():
                 counter = 0
             if val[0] != current:
                 tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
-                write_summary(tuplescore, listofnames, output_file, fblast, blast_lines, listofpidnames)
+                write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames)
                 current = val[0]
                 query = queries[val[0]]
                 listofseqs = []
@@ -177,9 +181,10 @@ def main():
 
         #This is to take care of last query hits when the file ends
         tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
-        write_summary(tuplescore, listofnames, output_file, fblast, blast_lines, listofpidnames)
+        write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames)
 
-    output_file.close()
+    output_file_summary.close()
+    output_file_outliers.close()
     fblast.close()
 
 if __name__ == "__main__":
