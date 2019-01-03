@@ -14,6 +14,7 @@ import numpy as np
 
 def fasta_iter(fasta_name):
     queries = {}
+    queries_len = {}
     with open(fasta_name, 'r') as fasta_file:
         faiter = (x[1] for x in groupby(fasta_file, lambda line: line[0] == ">"))
         for header in faiter:
@@ -21,7 +22,8 @@ def fasta_iter(fasta_name):
             hsplit = header.split(" ")
             seq = "".join(sequence.strip() for sequence in next(faiter))
             queries[hsplit[0]] = seq
-    return queries
+            queries_len[hsplit[0]] = len(seq)
+    return queries, queries_len
 
 def calc_entropy(c_values, ctotal):
     if ctotal ==0:
@@ -123,7 +125,7 @@ def main():
     fblast = open(str(args.blast_op), 'w')
 
     #Read BLAST file
-    queries = fasta_iter(str(args.query_file))
+    queries, queries_len = fasta_iter(str(args.query_file))
 
     listofseqs = []
     listofnames = []
@@ -135,6 +137,7 @@ def main():
             if current == 'None':
                 current = val[0]
                 query = queries[val[0]]
+                query_name = val[0]
                 listofseqs = []
                 listofnames = []
                 listofpidnames = []
@@ -144,10 +147,11 @@ def main():
                 listofnames.append(val[0])
                 counter = 0
             if val[0] != current:
-                tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
+                tuplescore = execute(listofseqs, queries_len[query_name], raiseto, gamma_half_values, gamma_values, listofpidnames)
                 write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames)
                 current = val[0]
                 query = queries[val[0]]
+                query_name = val[0]
                 listofseqs = []
                 listofnames = []
                 listofpidnames = []
@@ -160,7 +164,7 @@ def main():
                 seqlen = abs(int(val[7])-int(val[6]))+1
 
                 #Checking whether the BLAST hit at least covers 90% of the query length 
-                if seqlen < qc_threshold * len(query):
+                if seqlen < qc_threshold * queries_len[query_name]:
                     continue
                 if flagadd == True and float(val[2]) >= pid_threshold:
                     listofpidnames.append(val[1])
@@ -170,7 +174,7 @@ def main():
                 sseq = val[13]
                 scopy = [i for num, i in enumerate(sseq) if qseq[num] != '-']
                 head_spaces = int(val[6])-1
-                trail_spaces = len(query) - int(val[7])
+                trail_spaces = queries_len[query_name] - int(val[7])
                 scopy_new = ['-']*head_spaces
                 scopy_new.extend(scopy)
                 scopy_new.extend(['-']*trail_spaces)
@@ -180,7 +184,7 @@ def main():
                 counter += 1 
 
         #This is to take care of last query hits when the file ends
-        tuplescore = execute(listofseqs, len(query), raiseto, gamma_half_values, gamma_values, listofpidnames)
+        tuplescore = execute(listofseqs, queries_len[query_name], raiseto, gamma_half_values, gamma_values, listofpidnames)
         write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames)
 
     output_file_summary.close()
