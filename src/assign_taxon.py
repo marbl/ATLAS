@@ -42,7 +42,10 @@ def main():
 			else:
 				outliers = lsplit[col_num].split(';')
 				names =[]
-				for i in outliers:
+				for out_i in outliers:
+					i = out_i.split('.')[0]
+					if i not in taxonomy:
+						continue
 					database_name = taxonomy[i].split(';')
 					while len(database_name) < 7:
 						database_name.append('')

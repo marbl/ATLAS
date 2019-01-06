@@ -80,15 +80,15 @@ def write_summary(tuplescore, listofnames, output_file_outliers, output_file_sum
         listofpidnames.append('None')
     if index == 1:
         output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
-        output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
         if length != 0:
+            output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     if index == -1:
     	# This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
         output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
-        output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
         if length != 0:
+            output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     outliers = listofnames[1:index]
@@ -118,9 +118,9 @@ def main():
     gamma_values = [special.gammaln(i+2) for i in range(0,max_blast_hits+5)]
 
     #Open file handles for summary and subset blast output
-    output_file_outliers = open(str(args.output_file)+'.outliers','w')
+    output_file_outliers = open(str(args.output_file)+'_outliers.txt','w')
     output_file_outliers.write('#query_sequence\tcandidate_DB_seqs\n')
-    output_file_summary = open(str(args.output_file)+'.summary','w')
+    output_file_summary = open(str(args.output_file)+'_outliers_summary.txt','w')
     output_file_summary.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
     fblast = open(str(args.blast_op), 'w')
 
