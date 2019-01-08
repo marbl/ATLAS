@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 import sys
 import argparse
@@ -17,6 +18,12 @@ def main():
     parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1, default = 0.9) ", default= "0.9", required=False)
     parser.add_argument("-pid","--pid_threshold", help="Select hits >= pid (percent identity) when we cannot find candidate hits through MSA technique (default=100)", default= "100" , required=False)
     args = parser.parse_args()
+    
+    try:
+      import scipy
+    except ImportError:
+      raise ImportError('Looks like you do not have scipy module. Please rerun with scipy python module installed.')
+      sys.exit(1)
     try:
       import networkx
     except ImportError:
@@ -25,26 +32,26 @@ def main():
     try:
       import community
     except ImportError:
-      raise ImportError('Looks like you do not have networkx. Please rerun with community python module installed.')
+      raise ImportError('Looks like you do not have community module. Please rerun with community python module installed.')
       sys.exit(1)
     if not os.path.exists(args.dir):
         os.makedirs(args.dir)
 
-    print (time.strftime("%c")+': Starting outlier detection step..', file = sys.stderr) 
+    print (time.strftime("%c")+': Starting phase 1: Outlier detection step..', file = sys.stderr) 
     try:
         p = subprocess.check_output('python '+bin_dir+'/score_blast.py  -q '+args.query_file+' -b ' + args.blast_file + ' -a ' + args.raiseto + ' -blast ' + args.dir + '/subset_blast.txt -max ' + args.max_blast_hits + ' -qc ' + args.qc_threshold + ' -pid ' + args.pid_threshold + ' -out ' + args.dir + '/results', shell = True)
     except subprocess.CalledProcessError as err:
         print (time.strftime("%c")+': Failed to find outliers (relevant BLAST hits), terminating the process....\n' + str(err.output), file =sys.stderr)
         sys.exit(1)
 
-    print (time.strftime("%c")+':Starting LCA based taxonomy assignment to outliers...', file = sys.stderr)
+    print (time.strftime("%c")+': Starting LCA based taxonomy assignment to outliers...', file = sys.stderr)
     try:
         p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_outliers.txt -out ' + args.dir + '/consensus_taxonomy_based_on_outliers.txt ', shell = True)
     except subprocess.CalledProcessError as err:
             print (time.strftime("%c")+': Failed to assign the LCA of relevant hits as taxonomic annotation to reads, terminating the process....\n' + str(err.output), file = sys.stderr)
             sys.exit(1)
     
-    print(time.strftime("%c")+': Starting Stage2: Partitioning/Clustering database to create \"often confused together\" groups', file=sys.stderr)
+    print(time.strftime("%c")+': Starting phase 2: Partitioning/Clustering database to create \"often confused together\" groups', file=sys.stderr)
     try:
         p = subprocess.check_output('python '+bin_dir+'/make_edge_list.py  -q '+ args.query_file +' -b ' + args.dir + '/subset_blast.txt -o ' + args.dir + '/results_outliers.txt -out ' + args.dir + '/edges.list', shell = True)
     except subprocess.CalledProcessError as err:
