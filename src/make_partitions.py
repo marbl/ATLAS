@@ -20,25 +20,30 @@ def process_graph(edge_list_file, threshold, output_file):
     #Find partitions in each connected component
     counter = 0 
     current_highest = 0
+    current_community_id = 0
+    next_community_id = 0
     subgraphs = list(nx.connected_component_subgraphs(G))
     for subgraph in subgraphs:
         part = community.best_partition(subgraph)
-
-        #check for low-weight connections
-        current_comm_nodes = list(part.keys()) 
-        current_comm = G.subgraph(current_comm_nodes)
-        degree_val = [x[1] for x in current_comm.degree(current_comm_nodes)]
-        deg_med = np.median(degree_val)
-        deg_std = np.std(degree_val)
-        for db in part:
-            if current_comm.degree(db) < (deg_med - 2 * deg_std) or current_comm.degree(db) < 2:
-                print (degree_val, deg_med, deg_std, "partition just before-" + str(part[db] + counter))
-                continue
-            partition_num = part[db] + counter
-            if partition_num > current_highest:
-                current_highest = partition_num
-            fw.write(db + '\t' + str(partition_num) + '\n')
-        counter = current_highest + 1
+        communities = list(set(part.values()))
+        for c_ind in communities:
+            current_community_id = next_community_id
+            current_comm_nodes = [x for x in part if part[x] == c_ind]
+            current_comm = nx.Graph(G.subgraph(current_comm_nodes))
+            current_comm_edges = current_comm.edges(data=True)
+            edge_wts = [x[2]['weight'] for x in current_comm_edges]
+            edge_med = np.median(edge_wts)
+            edge_std = np.std(edge_wts)
+            to_remove_edges = []
+            for e in current_comm_edges:
+                if e[2]['weight'] == 1 or e[2]['weight'] < (edge_med - 2 * edge_std):
+                    to_remove_edges.append((e[0], e[1]))
+            current_comm.remove_edges_from(to_remove_edges)
+            for db in current_comm_nodes:
+                if current_comm.degree(db, 'weight') == 0:
+                    continue
+                fw.write(db + '\t' + str(current_community_id) + '\n')
+                next_community_id = current_community_id + 1
 
 def main():
 
