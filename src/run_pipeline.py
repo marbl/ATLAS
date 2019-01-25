@@ -39,7 +39,7 @@ def main():
 
     print (time.strftime("%c")+': Starting phase 1: Outlier detection step..', file = sys.stderr) 
     try:
-        p = subprocess.check_output('python '+bin_dir+'/score_blast.py  -q '+args.query_file+' -b ' + args.blast_file + ' -a ' + args.raiseto + ' -blast ' + args.dir + '/subset_blast.txt -max ' + args.max_blast_hits + ' -qc ' + args.qc_threshold + ' -pid ' + args.pid_threshold + ' -out ' + args.dir + '/results', shell = True)
+        p = subprocess.check_output('python ' + bin_dir + '/score_blast.py  -q '+ args.query_file +' -b ' + args.blast_file + ' -a ' + args.raiseto + ' -blast ' + args.dir + '/subset_blast.txt -max ' + args.max_blast_hits + ' -qc ' + args.qc_threshold + ' -pid ' + args.pid_threshold + ' -out ' + args.dir + '/results', shell = True)
     except subprocess.CalledProcessError as err:
         print (time.strftime("%c")+': Failed to find outliers (relevant BLAST hits), terminating the process....\n' + str(err.output), file =sys.stderr)
         sys.exit(1)
