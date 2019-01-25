@@ -74,26 +74,26 @@ def execute(listofseqs, width, raiseto, gamma_half_values, gamma_values, listofp
                 return len(scorearray)-2, scorearray
     return -1, scorearray
 
-def write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames):
+def write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames, ignore_flag):
     index, scorearray = tuplescore
     length = len(listofpidnames)
     if length == 0:
         listofpidnames.append('None')
     if index == 1:
-        output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index])]),'\n']))
+        output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), listofnames[0], str(scorearray[index]), ignore_flag]),'\n']))
         if length != 0:
             output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     if index == -1:
     	# This is correctly selecting the right set of BLAST hits because the hits skipped by lower sequence coverage are not added to blast_lines and once we find a hit that is less than pid_threshold, we don't care about all hits occuring after that for that particular query sequence.
-        output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA']),'\n']))
+        output_file_summary.write(''.join(['\t'.join([listofnames[0], 'NA', ';'.join(listofpidnames), 'NA', 'NA', ignore_flag]),'\n']))
         if length != 0:
             output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(listofpidnames), '\n']))
             fblast.write(''.join(['\n'.join(blast_lines[0:length]),'\n']))
         return
     outliers = listofnames[1:index]
-    output_file_summary.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index])]),'\n']))
+    output_file_summary.write(''.join(['\t'.join([listofnames[0], ';'.join(outliers), 'NA', 'NA', str(scorearray[index]), ignore_flag]),'\n']))
     output_file_outliers.write(''.join([listofnames[0], '\t', ';'.join(outliers), '\n']))
     fblast.write(''.join(['\n'.join(blast_lines[0:len(outliers)]), '\n']))
     return
@@ -122,16 +122,21 @@ def main():
     output_file_outliers = open(str(args.output_file)+'_outliers.txt','w')
     output_file_outliers.write('#query_sequence\tcandidate_DB_seqs\n')
     output_file_summary = open(str(args.output_file)+'_outliers_summary.txt','w')
-    output_file_summary.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\n')
+    output_file_summary.write('#query_sequence\tcandidate_DB_seqs(outliers)\tcandidate_DB_seqs_qualifying_percent_identity_cutoff\tquery_unrelated2DB\tscore_of_cut\tBLAST_hits_insufficient?\n')
     fblast = open(str(args.blast_op), 'w')
 
     #Read BLAST file
     queries, queries_len = fasta_iter(str(args.query_file))
-
+    ignore_queries = {}
+    ignore_flag = False
+    # The lowest bitscore should at most be 0.8 of max bitscore 
+    ignore_bitscore_threshold = 0.8
     listofseqs = []
     listofnames = []
     blast_lines = []
     current = 'None'
+    max_bitscore = 0
+    curr_bitscore = 0
     with open(str(args.blast_file)) as f:
         for line in f:
             val = line.strip().split('\t') 
@@ -147,9 +152,15 @@ def main():
                 listofseqs.append(list(query.upper()))
                 listofnames.append(val[0])
                 counter = 0
+                max_bitscore = val[11]
             if val[0] != current:
+                if float(curr_bitscore) < ignore_bitscore_threshold * float(max_bitscore):
+                    ignore_flag = False
+                    ignore_queries[current] = 1
+                else:
+                    ignore_flag = True
                 tuplescore = execute(listofseqs, queries_len[query_name], raiseto, gamma_half_values, gamma_values, listofpidnames)
-                write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames)
+                write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames, str(ignore_flag))
                 current = val[0]
                 query = queries[val[0]]
                 query_name = val[0]
@@ -171,6 +182,7 @@ def main():
                     listofpidnames.append(val[1])
                 else:
                     flagadd = False
+                curr_bitscore = val[11]
                 qseq = val[12]
                 sseq = val[13]
                 scopy = [i for num, i in enumerate(sseq) if qseq[num] != '-']
@@ -186,7 +198,7 @@ def main():
 
         #This is to take care of last query hits when the file ends
         tuplescore = execute(listofseqs, queries_len[query_name], raiseto, gamma_half_values, gamma_values, listofpidnames)
-        write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames)
+        write_summary(tuplescore, listofnames, output_file_outliers, output_file_summary, fblast, blast_lines, listofpidnames, str(ignore_flag))
 
     output_file_summary.close()
     output_file_outliers.close()
