@@ -35,15 +35,26 @@ def process_graph(edge_list_file, threshold, output_file):
             edge_med = np.median(edge_wts)
             edge_std = np.std(edge_wts)
             to_remove_edges = []
+            # print ("Before", current_community_id, len(list(nx.connected_component_subgraphs(current_comm))))
             for e in current_comm_edges:
                 if e[2]['weight'] == 1 or e[2]['weight'] < (edge_med - 2 * edge_std):
                     to_remove_edges.append((e[0], e[1]))
             current_comm.remove_edges_from(to_remove_edges)
-            for db in current_comm_nodes:
-                if current_comm.degree(db, 'weight') == 0:
+            sub_sub_communitites = list(nx.connected_component_subgraphs(current_comm))
+            for sub_sub_ind in sub_sub_communitites:
+                if len(sub_sub_ind.nodes()) == 1:
                     continue
-                fw.write(db + '\t' + str(current_community_id) + '\n')
-                next_community_id = current_community_id + 1
+                else:
+                    current_community_id = next_community_id
+                    for nodes_ind in sub_sub_ind.nodes():
+                        fw.write(nodes_ind + '\t' + str(current_community_id) + '\n')
+                        next_community_id = current_community_id + 1
+            # print ("Before", current_community_id, [len(x.nodes()) for x in list(nx.connected_component_subgraphs(current_comm))])
+            # for db in current_comm_nodes:
+            #     if current_comm.degree(db, 'weight') == 0:
+            #         continue
+            #     fw.write(db + '\t' + str(current_community_id) + '\n')
+            #     next_community_id = current_community_id + 1
 
 def main():
 
