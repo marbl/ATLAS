@@ -50,9 +50,12 @@ def create_read_partition_map_first_flag(candidate_file, seq2partition, partitio
             for partition in counter:
                 partition_counts.append(str(partition)+':'+str(counter[partition]))
             winner = seq2partition[candidates[0]]
-            db_seqs_in_winner = ';'.join(partition2seqs[winner])
-            fw.write(val[0] + '\t' + db_seqs_in_winner + '\t' + str(winner) + '\n')
-            fs.write(val[0] + '\t' + db_seqs_in_winner + '\t' + str(winner) + '\t' + ';'.join(partition_counts) + '\t' + val[1] + '\t' + str(len(candidates)) + '\n')
+            if len(candidates) != 1 and counter[winner] == 1:
+                fs.write(val[0] + '\tNA\tNA\t' + ';'.join(partition_counts) + '\t' + val[1] + '\t' + str(len(candidates)) + '\n')
+            else:
+                db_seqs_in_winner = ';'.join(partition2seqs[winner])
+                fw.write(val[0] + '\t' + db_seqs_in_winner + '\t' + str(winner) + '\n')
+                fs.write(val[0] + '\t' + db_seqs_in_winner + '\t' + str(winner) + '\t' + ';'.join(partition_counts) + '\t' + val[1] + '\t' + str(len(candidates)) + '\n')
     fw.close()
     fs.close()
     return seq2partition, partition2seqs
