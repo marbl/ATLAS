@@ -182,6 +182,10 @@ def main():
                     listofpidnames.append(val[1])
                 else:
                     flagadd = False
+                #check whether the subject has multiple hits - blast puts them together out of descending bitscore order
+                if val[1] == listofnames[-1]:
+                	continue
+                	
                 curr_bitscore = val[11]
                 qseq = val[12]
                 sseq = val[13]
