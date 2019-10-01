@@ -59,7 +59,7 @@ def main():
     parser.add_argument("-q","--query_file", help="A fasta file of query sequences",required=True)
     parser.add_argument("-o","--outliers_file", help="The candidate DB sequences for queries (results_outliers.txt) file", required = True)
     parser.add_argument("-out","--edge_output_file", help="Edge list with weights = #co-occurence", default="edges.list", required=False)
-    parser.add_argument("-pid","--pid_threshold", help="Consider hits >= pid (percent identity) only", default=95, required=False)
+    parser.add_argument("-pid","--pid_threshold", help="Consider hits >= pid (percent identity) only (default pid=95%)", default=95, required=False)
     parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1, default = 0.9) ", default = 0.9, required=False)
     args = parser.parse_args()
     queries, queries_len = fasta_iter(args.query_file)
