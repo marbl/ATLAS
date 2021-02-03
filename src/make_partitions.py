@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import networkx as nx
-import community
+from community import community_louvain
 import argparse
 import numpy as np
 
@@ -22,9 +22,9 @@ def process_graph(edge_list_file, threshold, output_file):
     current_highest = 0
     current_community_id = 0
     next_community_id = 0
-    subgraphs = list(nx.connected_component_subgraphs(G))
+    subgraphs = list(G.subgraph(c) for c in nx.connected_components(G))
     for subgraph in subgraphs:
-        part = community.best_partition(subgraph)
+        part = community_louvain.best_partition(subgraph)
         communities = list(set(part.values()))
         for c_ind in communities:
             current_community_id = next_community_id
@@ -40,7 +40,7 @@ def process_graph(edge_list_file, threshold, output_file):
                 if e[2]['weight'] == 1 or e[2]['weight'] < (edge_med - 2 * edge_std):
                     to_remove_edges.append((e[0], e[1]))
             current_comm.remove_edges_from(to_remove_edges)
-            sub_sub_communitites = list(nx.connected_component_subgraphs(current_comm))
+            sub_sub_communitites = list(current_comm.subgraph(cc) for cc in nx.connected_components(current_comm))
             for sub_sub_ind in sub_sub_communitites:
                 if len(sub_sub_ind.nodes()) == 1:
                     continue
