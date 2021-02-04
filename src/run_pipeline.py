@@ -17,6 +17,7 @@ def main():
     parser.add_argument("-max","--max_blast_hits", help="Maximum number of BLAST hits per query (default = 500)", default= "500" , required=False)
     parser.add_argument("-qc","--qc_threshold", help="Minimum query coverage for the hit to qualify (value between 0 and 1, default = 0.9) ", default= "0.9", required=False)
     parser.add_argument("-pid","--pid_threshold", help="Select hits >= pid (percent identity) when we cannot find candidate hits through MSA technique (default=100)", default= "100" , required=False)
+    parser.add_argument("-lca", "--lca_flag", help = "Set this to true if you want to output LCA taxonomy too", default = False)
     args = parser.parse_args()
     
     try:
@@ -44,12 +45,7 @@ def main():
         print (time.strftime("%c")+': Failed to find outliers (relevant BLAST hits), terminating the process....\n' + str(err.output), file =sys.stderr)
         sys.exit(1)
 
-    print (time.strftime("%c")+': Starting LCA based taxonomy assignment to outliers...', file = sys.stderr)
-    try:
-        p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_outliers.txt -out ' + args.dir + '/consensus_taxonomy_based_on_outliers.txt ', shell = True)
-    except subprocess.CalledProcessError as err:
-        print (time.strftime("%c")+': Failed to assign the LCA of relevant hits as taxonomic annotation to reads, terminating the process....\n' + str(err.output), file = sys.stderr)
-        sys.exit(1)
+    
     
     print(time.strftime("%c")+': Starting phase 2: Partitioning/Clustering database to create \"often confused together\" groups', file=sys.stderr)
     try:
@@ -71,25 +67,39 @@ def main():
         print (time.strftime("%c")+': Failed to make assignment of reads to partition number, terminating the process....\n' + str(err.output), file = sys.stderr)
         sys.exit(1)
 
-    print(time.strftime("%c")+': Get taxonomic annotation for the reads based on partition assignment', file=sys.stderr)
-    try:
-        p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_read_to_partition_assignment.txt -out ' + args.dir + '/consensus_taxonomy_based_on_partition.txt ', shell = True)
+    try: 
+        p = subprocess.check_output("python "+bin_dir+"/atlas_taxa_annotation.py -i " + args.dir + "/results_partition_map_FINAL.txt -r "+ args.dir+"/results_read_to_partition_assignment.txt -t "+ args.db_file + " -o " + args.dir+"/taxonomic_annotation_atlas.txt" ,shell = True)
     except subprocess.CalledProcessError as err:
-        print (time.strftime("%c")+': Failed to get taxonomic annotations for reads, terminating the process....\n' + str(err.output), file = sys.stderr)
+        print (time.strftime("%c")+': Failed to get taxonomic annotations for partitions, terminating the process....\n' + str(err.output), file = sys.stderr)
         sys.exit(1)
+    #################### If LCA flag is set
+    if str(args.lca_flag).lower() == "true":
+        print (time.strftime("%c")+': Starting LCA based taxonomy assignment to outliers...', file = sys.stderr)
+        try:
+            p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_outliers.txt -out ' + args.dir + '/consensus_taxonomy_based_on_outliers.txt ', shell = True)
+        except subprocess.CalledProcessError as err:
+            print (time.strftime("%c")+': Failed to assign the LCA of relevant hits as taxonomic annotation to reads, terminating the process....\n' + str(err.output), file = sys.stderr)
+            sys.exit(1)
 
-    print(time.strftime("%c")+': Get taxonomic composition of database partition', file=sys.stderr)
-    try:
-        p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_partition_map_FINAL.txt -out ' + args.dir + '/results_partition_taxonomy.txt ', shell = True)
-    except subprocess.CalledProcessError as err:
-        print (time.strftime("%c")+': Failed to get taxonomic annotations for partitions, terminating the process....\n' + str(err.output), file = sys.stderr)
-        sys.exit(1)
-    print(time.strftime("%c")+': combining annotation from partition and outliers', file=sys.stderr)
-    try:
-        p = subprocess.check_output("python "+bin_dir+"/combine_consensus.py " + args.dir + '/consensus_taxonomy_based_on_outliers.txt '+ args.dir +"/consensus_taxonomy_based_on_partition.txt "+args.dir+'/taxonomic_annotation_atlas.txt ', shell = True)
-    except subprocess.CalledProcessError as err:
-        print (time.strftime("%c")+': Failed to get taxonomic annotations for partitions, terminating the process....\n' + str(err.output), file = sys.stderr)
-        sys.exit(1)
+        print(time.strftime("%c")+': Get taxonomic composition of database partition', file=sys.stderr)
+        try:
+            p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_partition_map_FINAL.txt -out ' + args.dir + '/results_partition_taxonomy.txt ', shell = True)
+        except subprocess.CalledProcessError as err:
+            print (time.strftime("%c")+': Failed to get taxonomic annotations for partitions, terminating the process....\n' + str(err.output), file = sys.stderr)
+            sys.exit(1)
+        print(time.strftime("%c")+': Get taxonomic annotation for the reads based on partition assignment', file=sys.stderr)
+        try:
+            p = subprocess.check_output('python '+bin_dir+'/assign_taxon.py  -t '+ args.db_file +' -o ' + args.dir + '/results_read_to_partition_assignment.txt -out ' + args.dir + '/consensus_taxonomy_based_on_partition.txt ', shell = True)
+        except subprocess.CalledProcessError as err:
+            print (time.strftime("%c")+': Failed to get taxonomic annotations for reads, terminating the process....\n' + str(err.output), file = sys.stderr)
+            sys.exit(1)
+        print(time.strftime("%c")+': combining annotation from partition and outliers', file=sys.stderr)
+        try:
+            p = subprocess.check_output("python "+bin_dir+"/combine_consensus.py " + args.dir + '/consensus_taxonomy_based_on_outliers.txt '+ args.dir +"/consensus_taxonomy_based_on_partition.txt "+args.dir+'/taxonomic_annotation_atlas_LCA.txt ', shell = True)
+        except subprocess.CalledProcessError as err:
+            print (time.strftime("%c")+': Failed to get taxonomic annotations for partitions, terminating the process....\n' + str(err.output), file = sys.stderr)
+            sys.exit(1)
+    ###########################
     print(time.strftime("%c")+': Done...', file=sys.stderr)
 if __name__ == '__main__':
     main()
